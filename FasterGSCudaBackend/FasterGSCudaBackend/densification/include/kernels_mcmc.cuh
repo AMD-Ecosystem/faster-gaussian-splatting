@@ -3,6 +3,7 @@
 #include "densification_config.h"
 #include "helper_math.h"
 #include <cstdint>
+#include <cmath>
 
 namespace faster_gs::densification::kernels::mcmc {
 
@@ -16,7 +17,7 @@ namespace faster_gs::densification::kernels::mcmc {
             double binom = 1.0f;
             double sign = 1.0f;
             for (int k = 0; k <= n; k++, sign = -sign) {
-                const double coefficient = binom * sign * rsqrt(static_cast<double>(k + 1));
+                const double coefficient = binom * sign / std::sqrt(static_cast<double>(k + 1));
                 relocation_coefficients[n * config::mcmc_max_n_samples + k] = static_cast<float>(coefficient);
                 binom *= static_cast<double>(n - k) / static_cast<double>(k + 1);
             }
