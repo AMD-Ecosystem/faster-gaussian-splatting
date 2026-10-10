@@ -28,6 +28,7 @@ void faster_gs::rasterization::backward(
     float3* grad_sh_coefficients_rest,
     float2* grad_mean2d_helper,
     float* grad_conic_helper,
+    float2* grad_mean2d_abs_helper,
     float* densification_info,
     const int n_primitives,
     const int n_instances,
@@ -53,7 +54,8 @@ void faster_gs::rasterization::backward(
 
     // note that with c++20 one could use a templated lambda to improve readability here
     auto dispatch_rasterize_backward = [&](const uint* instance_primitive_indices) {
-        kernels::backward::blend_backward_cu<<<n_buckets, 32>>>(
+        const auto blend_backward_kernel = grad_mean2d_abs_helper != nullptr ? kernels::backward::blend_backward_cu<true> : kernels::backward::blend_backward_cu<false>;
+        blend_backward_kernel<<<n_buckets, 32>>>(
             tile_buffers.instance_ranges,
             tile_buffers.buckets_offset,
             instance_primitive_indices,
@@ -72,6 +74,7 @@ void faster_gs::rasterization::backward(
             grad_conic_helper,
             grad_opacities,
             grad_sh_coefficients_0,
+            grad_mean2d_abs_helper,
             n_primitives,
             width,
             height,
@@ -102,6 +105,7 @@ void faster_gs::rasterization::backward(
         primitive_buffers.n_touched_tiles,
         grad_mean2d_helper,
         grad_conic_helper,
+        grad_mean2d_abs_helper,
         grad_means,
         grad_scales,
         grad_rotations,

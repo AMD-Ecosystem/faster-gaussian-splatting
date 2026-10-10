@@ -134,6 +134,9 @@ faster_gs::rasterization::backward_wrapper(
     torch::Tensor grad_conic_helper = torch::zeros({3, n_primitives}, float_options);
 
     const bool update_densification_info = densification_info.size(0) > 0;
+    const bool compute_abs_grad = densification_info.size(0) == 3;
+    torch::Tensor grad_mean2d_abs_helper;
+    if (compute_abs_grad) grad_mean2d_abs_helper = torch::zeros({n_primitives, 2}, float_options);
 
     backward(
         grad_image.contiguous().data_ptr<float>(),
@@ -158,6 +161,7 @@ faster_gs::rasterization::backward_wrapper(
         reinterpret_cast<float3*>(grad_sh_coefficients_rest.data_ptr<float>()),
         reinterpret_cast<float2*>(grad_mean2d_helper.data_ptr<float>()),
         grad_conic_helper.data_ptr<float>(),
+        compute_abs_grad ? reinterpret_cast<float2*>(grad_mean2d_abs_helper.data_ptr<float>()) : nullptr,
         update_densification_info ? densification_info.data_ptr<float>() : nullptr,
         n_primitives,
         n_instances,

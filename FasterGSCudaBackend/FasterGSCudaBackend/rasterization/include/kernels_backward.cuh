@@ -23,6 +23,7 @@ namespace faster_gs::rasterization::kernels::backward {
         const uint* __restrict__ primitive_n_touched_tiles,
         const float2* __restrict__ grad_mean2d,
         const float* __restrict__ grad_conic,
+        const float2* __restrict__ grad_mean2d_abs,
         float3* __restrict__ grad_means,
         float3* __restrict__ grad_scales,
         float4* __restrict__ grad_rotations,
@@ -198,6 +199,14 @@ namespace faster_gs::rasterization::kernels::backward {
                 dL_dmean2d.y * height
             );
             densification_info[n_primitives + primitive_idx] += length(dL_dmean2d_ndc);
+            if (grad_mean2d_abs != nullptr) {
+                const float2 dL_dmean2d_abs = grad_mean2d_abs[primitive_idx];
+                const float2 dL_dmean2d_abs_ndc = 0.5f * make_float2(
+                    dL_dmean2d_abs.x * width,
+                    dL_dmean2d_abs.y * height
+                );
+                densification_info[2 * n_primitives + primitive_idx] += length(dL_dmean2d_abs_ndc);
+            }
         }
 
         // mean3d camera space gradient from mean2d
@@ -257,6 +266,7 @@ namespace faster_gs::rasterization::kernels::backward {
     }
 
     // based on https://github.com/humansensinglab/taming-3dgs/blob/fd0f7d9edfe135eb4eefd3be82ee56dada7f2a16/submodules/diff-gaussian-rasterization/cuda_rasterizer/backward.cu#L404
+    template <bool compute_abs_grad>
     __global__ void blend_backward_cu(
         const uint2* __restrict__ tile_instance_ranges,
         const uint* __restrict__ tile_bucket_offsets,
@@ -276,6 +286,7 @@ namespace faster_gs::rasterization::kernels::backward {
         float* __restrict__ grad_conic,
         float* __restrict__ grad_opacity,
         float3* __restrict__ grad_sh_coefficients_0,
+        float2* __restrict__ grad_mean2d_abs,
         const uint n_primitives,
         const uint width,
         const uint height,
@@ -324,6 +335,7 @@ namespace faster_gs::rasterization::kernels::backward {
 
         // gradient accumulation
         float2 dL_dmean2d_accum = {0.0f, 0.0f};
+        float2 dL_dmean2d_abs_accum = {0.0f, 0.0f};
         float3 dL_dconic_accum = {0.0f, 0.0f, 0.0f};
         float dL_dopacity_accum = 0.0f;
         float3 dL_dcolor_accum = {0.0f, 0.0f, 0.0f};
@@ -451,6 +463,7 @@ namespace faster_gs::rasterization::kernels::backward {
                 conic.y * delta.x + conic.z * delta.y
             );
             dL_dmean2d_accum += dL_dmean2d;
+            if constexpr (compute_abs_grad) dL_dmean2d_abs_accum += fabsf(dL_dmean2d);
 
             transmittance *= one_minus_alpha;
         }
@@ -459,6 +472,10 @@ namespace faster_gs::rasterization::kernels::backward {
         if (valid_primitive) {
             atomicAdd(&grad_mean2d[primitive_idx].x, dL_dmean2d_accum.x);
             atomicAdd(&grad_mean2d[primitive_idx].y, dL_dmean2d_accum.y);
+            if constexpr (compute_abs_grad) {
+                atomicAdd(&grad_mean2d_abs[primitive_idx].x, dL_dmean2d_abs_accum.x);
+                atomicAdd(&grad_mean2d_abs[primitive_idx].y, dL_dmean2d_abs_accum.y);
+            }
             atomicAdd(&grad_conic[primitive_idx], dL_dconic_accum.x);
             atomicAdd(&grad_conic[n_primitives + primitive_idx], dL_dconic_accum.y);
             atomicAdd(&grad_conic[2 * n_primitives + primitive_idx], dL_dconic_accum.z);
