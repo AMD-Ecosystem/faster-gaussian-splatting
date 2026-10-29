@@ -2,9 +2,24 @@
 
 #include "densification_config.h"
 #include "helper_math.h"
-#include <curand_philox4x32_x.h>
 #include <cstdint>
 #include <cmath>
+
+#if defined(__HIP_PLATFORM_AMD__) || defined(USE_ROCM)
+// rocRAND has no public counterpart of curand_Philox4x32_10, so define the same
+// Philox4x32-10 bijection (Random123): ten rounds with the key bumped in between.
+__device__ inline uint4 curand_Philox4x32_10(uint4 counter, uint2 key) {
+    for (int round = 0; round < 10; round++) {
+        if (round > 0) key = make_uint2(key.x + 0x9E3779B9u, key.y + 0xBB67AE85u);
+        const uint hi0 = __umulhi(0xD2511F53u, counter.x);
+        const uint hi1 = __umulhi(0xCD9E8D57u, counter.z);
+        counter = make_uint4(hi1 ^ counter.y ^ key.x, 0xCD9E8D57u * counter.z, hi0 ^ counter.w ^ key.y, 0xD2511F53u * counter.x);
+    }
+    return counter;
+}
+#else
+#include <curand_philox4x32_x.h>
+#endif
 
 namespace faster_gs::densification::kernels::mcmc {
 

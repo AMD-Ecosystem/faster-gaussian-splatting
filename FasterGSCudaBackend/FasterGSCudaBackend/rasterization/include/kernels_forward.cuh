@@ -7,7 +7,11 @@
 #include "helper_math.h"
 #include "utils.h"
 #include <cooperative_groups.h>
+#if defined(__HIP_PLATFORM_AMD__) || defined(USE_ROCM)
+#include <hip/cooperative_groups/hip_reduce.h>
+#else
 #include <cooperative_groups/reduce.h>
+#endif
 namespace cg = cooperative_groups;
 
 namespace faster_gs::rasterization::kernels::forward {
