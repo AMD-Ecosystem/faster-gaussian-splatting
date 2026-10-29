@@ -54,6 +54,13 @@ namespace faster_gs::rasterization::kernels::backward {
         const uint primitive_idx = valid ? thread_idx : n_primitives - 1;
         const bool active = valid && primitive_n_touched_tiles[primitive_idx] > 0;
 
+        // gradients are not zero-initialized
+        if (valid && !active) {
+            grad_means[primitive_idx] = make_float3(0.0f);
+            grad_scales[primitive_idx] = make_float3(0.0f);
+            grad_rotations[primitive_idx] = make_float4(0.0f);
+        }
+
         // load 3d mean
         const float3 mean3d = active ? means[primitive_idx] : make_float3(0.0f);
 

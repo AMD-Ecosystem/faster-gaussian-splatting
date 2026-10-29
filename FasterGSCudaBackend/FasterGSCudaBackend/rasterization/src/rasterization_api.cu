@@ -124,9 +124,9 @@ faster_gs::rasterization::backward_wrapper(
     const int n_primitives = means.size(0);
     const int total_sh_bases = sh_coefficients_rest.size(1);
     const torch::TensorOptions float_options = torch::TensorOptions().dtype(torch::kFloat).device(torch::kCUDA);
-    torch::Tensor grad_means = torch::zeros({n_primitives, 3}, float_options);
-    torch::Tensor grad_scales = torch::zeros({n_primitives, 3}, float_options);
-    torch::Tensor grad_rotations = torch::zeros({n_primitives, 4}, float_options);
+    torch::Tensor grad_means = torch::empty({n_primitives, 3}, float_options);
+    torch::Tensor grad_scales = torch::empty({n_primitives, 3}, float_options);
+    torch::Tensor grad_rotations = torch::empty({n_primitives, 4}, float_options);
     torch::Tensor grad_opacities = torch::zeros({n_primitives, 1}, float_options);
     torch::Tensor grad_sh_coefficients_0 = torch::zeros({n_primitives, 1, 3}, float_options);
     torch::Tensor grad_sh_coefficients_rest = torch::empty({n_primitives, total_sh_bases, 3}, float_options);
