@@ -94,7 +94,7 @@ void faster_gs::rasterization::backward(
         dispatch_rasterize_backward(instance_buffers.primitive_indices.Current());
     }
 
-    kernels::backward::preprocess_backward_cu<<<div_round_up(n_primitives, config::block_size_preprocess_backward), config::block_size_preprocess_backward>>>(
+    kernels::backward::preprocess_backward_cu<<<div_round_up(n_primitives, config::block_size_preprocess_backward), config::block_size_preprocess_backward, config::block_size_preprocess_backward * total_sh_bases * sizeof(float3)>>>(
         means,
         scales,
         rotations,

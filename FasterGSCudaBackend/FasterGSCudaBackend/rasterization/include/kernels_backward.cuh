@@ -42,18 +42,43 @@ namespace faster_gs::rasterization::kernels::backward {
         const float center_y,
         const bool proper_antialiasing)
     {
-        const uint primitive_idx = blockIdx.x * blockDim.x + threadIdx.x;
-        if (primitive_idx >= n_primitives || primitive_n_touched_tiles[primitive_idx] == 0) return;
+        constexpr uint warp_size = 32;
+        auto block = cg::this_thread_block();
+        auto warp = cg::tiled_partition<warp_size>(block);
+        const uint thread_idx = cg::this_grid().thread_rank();
+        const uint lane_idx = warp.thread_rank();
+
+        // threads stay alive until the warp-wide sh gradient write below
+        if (thread_idx - lane_idx >= n_primitives) return;
+        const bool valid = thread_idx < n_primitives;
+        const uint primitive_idx = valid ? thread_idx : n_primitives - 1;
+        const bool active = valid && primitive_n_touched_tiles[primitive_idx] > 0;
 
         // load 3d mean
-        const float3 mean3d = means[primitive_idx];
+        const float3 mean3d = active ? means[primitive_idx] : make_float3(0.0f);
 
-        // sh evaluation backward
-        const float3 dL_dmean3d_from_color = convert_sh_to_color_backward(
-            sh_coefficients_rest, grad_sh_coefficients_0, grad_sh_coefficients_rest,
+        // sh evaluation backward, rest coefficient gradients are collected in shared memory for a coalesced write
+        extern __shared__ float3 collected_grad_sh_coefficients_rest[];
+        float3* grad_sh_coefficients_rest_primitive = collected_grad_sh_coefficients_rest + block.thread_rank() * total_sh_bases;
+        const float3 dL_dmean3d_from_color = active ? convert_sh_to_color_backward(
+            sh_coefficients_rest, grad_sh_coefficients_0, grad_sh_coefficients_rest_primitive,
             mean3d, cam_position[0], primitive_idx,
             active_sh_bases, total_sh_bases
-        );
+        ) : make_float3(0.0f);
+        // zero the gradients of inactive bases and invisible primitives
+        for (uint i = active ? active_sh_bases - 1 : 0; i < total_sh_bases; i++) grad_sh_coefficients_rest_primitive[i] = make_float3(0.0f);
+        warp.sync();
+
+        // warp-wide write using 16 byte stores where possible (the warp's first primitive is a multiple of 32)
+        const uint warp_primitive_offset = thread_idx - lane_idx;
+        const uint n_floats_warp = min(warp_size, n_primitives - warp_primitive_offset) * 3 * total_sh_bases;
+        const float* collected_grad_sh_coefficients_rest_warp = reinterpret_cast<const float*>(collected_grad_sh_coefficients_rest + warp.meta_group_rank() * warp_size * total_sh_bases);
+        float* grad_sh_coefficients_rest_warp = reinterpret_cast<float*>(grad_sh_coefficients_rest + warp_primitive_offset * total_sh_bases);
+        const uint n_float4_warp = n_floats_warp / 4;
+        for (uint i = lane_idx; i < n_float4_warp; i += warp_size) reinterpret_cast<float4*>(grad_sh_coefficients_rest_warp)[i] = reinterpret_cast<const float4*>(collected_grad_sh_coefficients_rest_warp)[i];
+        for (uint i = 4 * n_float4_warp + lane_idx; i < n_floats_warp; i += warp_size) grad_sh_coefficients_rest_warp[i] = collected_grad_sh_coefficients_rest_warp[i];
+
+        if (!active) return;
 
         const float4 w2c_r3 = w2c[2];
         const float depth = w2c_r3.x * mean3d.x + w2c_r3.y * mean3d.y + w2c_r3.z * mean3d.z + w2c_r3.w;

@@ -129,7 +129,7 @@ faster_gs::rasterization::backward_wrapper(
     torch::Tensor grad_rotations = torch::zeros({n_primitives, 4}, float_options);
     torch::Tensor grad_opacities = torch::zeros({n_primitives, 1}, float_options);
     torch::Tensor grad_sh_coefficients_0 = torch::zeros({n_primitives, 1, 3}, float_options);
-    torch::Tensor grad_sh_coefficients_rest = torch::zeros({n_primitives, total_sh_bases, 3}, float_options);
+    torch::Tensor grad_sh_coefficients_rest = torch::empty({n_primitives, total_sh_bases, 3}, float_options);
     torch::Tensor grad_mean2d_helper = torch::zeros({n_primitives, 2}, float_options);
     torch::Tensor grad_conic_helper = torch::zeros({3, n_primitives}, float_options);
 
