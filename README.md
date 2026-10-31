@@ -70,7 +70,7 @@ __That being said, we encourage you to give the native implementation a shot as 
 - An NVIDIA GPU, or an AMD GPU supported by ROCm
 - Linux (preferred) or Windows
 - A recent CUDA SDK ([CUDA Toolkit 12.8](https://developer.nvidia.com/cuda-12-8-0-download-archive) recommended) and a compatible C++ compiler
-- On AMD GPUs: a recent [ROCm](https://rocm.docs.amd.com) installation (7.2 or newer recommended) and a PyTorch build for ROCm instead of the CUDA SDK
+- On AMD GPUs: a recent [ROCm](https://rocm.docs.amd.com) installation (7.2 or newer recommended) and a PyTorch build for ROCm instead of the CUDA SDK; hipRAND 3.5.0 or newer provides the Philox block function, while older ROCm uses a bundled copy with identical output
 - [Anaconda / Miniconda](https://www.anaconda.com/docs/getting-started/miniconda/install) installed
 
 
