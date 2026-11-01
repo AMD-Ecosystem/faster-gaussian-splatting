@@ -6,11 +6,10 @@
 #include <cmath>
 
 #if defined(__HIP_PLATFORM_AMD__) || defined(USE_ROCM)
-#include <hiprand/hiprand_version.h>
-#if HIPRAND_VERSION >= 300500
+#ifdef FGS_HAVE_HIPRAND_PHILOX4X32_10  // set by setup.py when hipRAND provides the function
 #include <hiprand/hiprand_kernel.h>
 #else
-// hipRAND before 3.5.0 has no counterpart of curand_Philox4x32_10, so define the same
+// This hipRAND has no counterpart of curand_Philox4x32_10, so define the same
 // Philox4x32-10 bijection (Random123): ten rounds with the key bumped in between.
 __device__ inline uint4 curand_Philox4x32_10(uint4 counter, uint2 key) {
     for (int round = 0; round < 10; round++) {
