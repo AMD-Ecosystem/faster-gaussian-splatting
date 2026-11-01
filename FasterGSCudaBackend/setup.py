@@ -37,6 +37,8 @@ for module in cuda_modules:
 
 def hip_compiles(source):
     """Check whether hipcc accepts the given HIP source with the extension's flags and include paths."""
+    if ROCM_HOME is None:
+        return False
     hipcc = shutil.which('hipcc', path=os.path.join(ROCM_HOME, 'bin'))
     if hipcc is None:
         return False
