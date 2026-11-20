@@ -1233,26 +1233,18 @@ inline __host__ __device__ uint4 max(uint4 a, uint4 b)
 ////////////////////////////////////////////////////////////////////////////////
 // lerp
 // - linear interpolation between a and b, based on value t in [0, 1] range
-// C++20 adds std::lerp(float, float, float), which libstdc++ also injects into
-// the global namespace through <math.h>, so declaring a global scalar lerp
-// conflicts with it there; std::lerp in turn is not callable from device code
-// and is not visible unqualified with every standard library. lerp_scalar is
-// the scalar form device code calls: one definition, callable from both the
-// host and the device pass, independent of the standard library and of whether
-// the pass in progress is a device pass. The float2/float3/float4 overloads
-// take distinct parameter types and never conflict.
 ////////////////////////////////////////////////////////////////////////////////
 
-inline __device__ __host__ float lerp_scalar(float a, float b, float t)
+// Under C++20, libstdc++ declares std::lerp(float, float, float) in the global
+// namespace through <math.h>, so on HIP the scalar version is device-only.
+#if defined(__HIP_PLATFORM_AMD__) || defined(USE_ROCM)
+inline __device__ float lerp(float a, float b, float t)
+#else
+inline __device__ __host__ float lerp(float a, float b, float t)
+#endif
 {
     return a + t*(b-a);
 }
-#if __cplusplus < 202002L
-inline __device__ __host__ float lerp(float a, float b, float t)
-{
-    return lerp_scalar(a, b, t);
-}
-#endif
 inline __device__ __host__ float2 lerp(float2 a, float2 b, float t)
 {
     return a + t*(b-a);
