@@ -12,8 +12,7 @@ __description__ = 'A refactored CUDA implementation of the 3DGS rasterizer.'
 ENABLE_FASTMATH = True  # set to False to disable fast math optimizations (e.g., for debugging)
 ENABLE_NVCC_LINEINFO = False  # set to True for profiling kernels with Nsight Compute (overhead is minimal)
 
-# Detect ROCm/HIP build
-IS_ROCM = hasattr(torch.version, 'hip') and torch.version.hip is not None
+IS_ROCM = torch.version.hip is not None
 
 module_root = Path(__file__).parent.absolute()
 extension_name = module_root.name
@@ -31,27 +30,17 @@ include_dirs = [str(extension_root / 'utils')]
 for module in cuda_modules:
     include_dirs.append(str(extension_root / module / 'include'))
 
-
 # set up compiler flags
-# PyTorch 2.x uses C++20 features (concepts, requires) in headers
-cxx_std = '/std:c++20' if os.name == 'nt' else '-std=c++20'
-cxx_flags = [cxx_std]
-if IS_ROCM:
-    # HIP/ROCm flags
-    nvcc_flags = ['-std=c++20']
-    if ENABLE_FASTMATH:
-        cxx_flags.append('-O3')
-        nvcc_flags.append('-O3')
-        nvcc_flags.append('-ffast-math')
-else:
-    # CUDA/nvcc flags
-    nvcc_flags = ['-std=c++20']
-    if ENABLE_FASTMATH:
-        cxx_flags.append('-O3')
-        nvcc_flags.append('-O3')
-        nvcc_flags.append('-use_fast_math')
-    if ENABLE_NVCC_LINEINFO:
-        nvcc_flags.append('-lineinfo')
+# ROCm builds use C++20, which recent PyTorch releases require
+cxx_std = 'c++20' if IS_ROCM else 'c++17'
+cxx_flags = [f'/std:{cxx_std}' if os.name == 'nt' else f'-std={cxx_std}']
+nvcc_flags = [f'-std={cxx_std}']
+if ENABLE_FASTMATH:
+    cxx_flags.append('-O3')
+    nvcc_flags.append('-O3')
+    nvcc_flags.append('-ffast-math' if IS_ROCM else '-use_fast_math')
+if ENABLE_NVCC_LINEINFO:
+    nvcc_flags.append('-lineinfo')
 
 # define the CUDA extension
 extension = CUDAExtension(
