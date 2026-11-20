@@ -1,5 +1,4 @@
 import os
-import sys
 from glob import glob
 from pathlib import Path
 
@@ -54,24 +53,6 @@ else:
     if ENABLE_NVCC_LINEINFO:
         nvcc_flags.append('-lineinfo')
 
-# Windows: c10.dll does not export the c10::ValueError(SourceLocation, string)
-# inherited constructor (MSVC does not re-export inherited ctors even for C10_API
-# classes). <torch/extension.h> pulls in ATen/TensorIndexing.h which triggers
-# TORCH_CHECK_VALUE, generating a __declspec(dllimport) reference to that ctor
-# and causing LNK2001. Redirect the missing thunk to Error(SourceLocation,string)
-# which IS exported. ValueError IS-A Error with no extra data members.
-extra_link_args = []
-if sys.platform == "win32":
-    _val_imp = (
-        "__imp_??0ValueError@c10@@QEAA@USourceLocation@1@"
-        "V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z"
-    )
-    _err_imp = (
-        "__imp_??0Error@c10@@QEAA@USourceLocation@1@"
-        "V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z"
-    )
-    extra_link_args.append(f"/ALTERNATENAME:{_val_imp}={_err_imp}")
-
 # define the CUDA extension
 extension = CUDAExtension(
     name=f'{extension_name}._C',
@@ -80,8 +61,7 @@ extension = CUDAExtension(
     extra_compile_args={
         'cxx': cxx_flags,
         'nvcc': nvcc_flags
-    },
-    extra_link_args=extra_link_args,
+    }
 )
 
 # set up the package
