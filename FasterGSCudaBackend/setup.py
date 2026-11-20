@@ -1,13 +1,11 @@
 import os
-import shutil
-import subprocess
 import sys
 from glob import glob
 from pathlib import Path
 
 import torch
 from setuptools import setup
-from torch.utils.cpp_extension import CUDAExtension, BuildExtension, ROCM_HOME, include_paths
+from torch.utils.cpp_extension import CUDAExtension, BuildExtension
 
 __author__ = 'Florian Hahlbohm'
 __description__ = 'A refactored CUDA implementation of the 3DGS rasterizer.'
@@ -35,19 +33,6 @@ for module in cuda_modules:
     include_dirs.append(str(extension_root / module / 'include'))
 
 
-def hip_compiles(source):
-    """Check whether hipcc accepts the given HIP source with the extension's flags and include paths."""
-    if ROCM_HOME is None:
-        return False
-    hipcc = shutil.which('hipcc', path=os.path.join(ROCM_HOME, 'bin'))
-    if hipcc is None:
-        return False
-    include_flags = [f'-I{d}' for d in include_dirs + include_paths('cuda')]
-    command = [hipcc, '-x', 'hip', '-fsyntax-only', *nvcc_flags, *include_flags, '-']
-    result = subprocess.run(command, input=source, text=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    return result.returncode == 0
-
-
 # set up compiler flags
 # PyTorch 2.x uses C++20 features (concepts, requires) in headers
 cxx_std = '/std:c++20' if os.name == 'nt' else '-std=c++20'
@@ -59,9 +44,6 @@ if IS_ROCM:
         cxx_flags.append('-O3')
         nvcc_flags.append('-O3')
         nvcc_flags.append('-ffast-math')
-    if hip_compiles('#include <hiprand/hiprand_kernel.h>\n'
-                    '__device__ uint4 probe(uint4 c, uint2 k) { return hiprand_Philox4x32_10(c, k); }\n'):
-        nvcc_flags.append('-DFGS_HAVE_HIPRAND_PHILOX4X32_10')
 else:
     # CUDA/nvcc flags
     nvcc_flags = ['-std=c++20']
